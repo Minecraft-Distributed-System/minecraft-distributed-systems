@@ -3,7 +3,7 @@ import axios from "axios";
 import { join, basename } from "path";
 import { readFileSync, writeFileSync, ensureFileSync, existsSync, ensureDirSync, ensureDir } from "fs-extra";
 import { DistributedNode } from "../distributedNode/node/distributedNodeInterface";
-import { DistributedServerNode } from "../distributedNode/distributedNode";
+import DistributedServerNode  from "../distributedNode/distributedNode";
 import path from "path";
 let env = "prod";
 export class FileWatcher {

@@ -1,5 +1,5 @@
 import fs from "fs-extra";
-import { DistributedServerNode } from "./distributedNode";
+import  DistributedServerNode  from "./distributedNode";
 import * as path from "path";
 
 export const routes = (mainServer, node: DistributedServerNode) => {
