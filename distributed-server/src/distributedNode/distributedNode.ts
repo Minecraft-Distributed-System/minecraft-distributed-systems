@@ -2,24 +2,20 @@ import fastify from "fastify";
 import {MinecraftServerAdaptor} from "../minecraftServerAdaptor/MinecraftServerAdaptor";
 import {routes} from "./routes";
 import {v4 as uuidv4} from "uuid";
-import * as fs from "fs";
 import {DistributedNode, RAFTSave, RaftState} from "./node/distributedNodeInterface";
 import axios, {AxiosError} from "axios";
 import {clearInterval} from "timers";
 import {HEARTBEAT_INTERVAL, HEARTBEAT_TIMER} from "./node/timers";
 import {RAFTconsensus} from "./RAFTconsensus";
 import {FileWatcher} from "../fileSync/worldFileSync";
-import {FILEPATH} from "../file-util/FileUtil";
+import {saveToFile} from "../file-util/FileUtil";
 import Connection from "../network/connection";
 
 let ENV: string = process.env.NODE_ENV;
 
 export default class DistributedServerNode {
     // Network
-    private connection: Connection;
-    public mainPort: number;
-    public minecraftPort: number;
-    public address: string;
+    public connection: Connection;
 
     // Main Server
     public mainServer: any;
@@ -71,13 +67,21 @@ export default class DistributedServerNode {
         this.raftSave = raftSave || this.baseRaftSave;
     }
 
-    private findPrimaryNode() {
+    private findPrimaryNode(): DistributedNode | null {
         for (const node of this.networkNodes) {
             if (node.isPrimary) {
                 return node;
             }
         }
         return null;
+    }
+
+    /* If the current node is a primary server and if the environment is production, start the minecraft world */
+    private initiateMinecraftServer(): void {
+        if (ENV === "production" && this.isPrimaryNode) {
+            DistributedServerNode.initMCServerApplication();
+            this.fileWatcher.startWatching();
+        }
     }
 
     public updateNodeList(nodeList: DistributedNode[]) {
@@ -96,13 +100,7 @@ export default class DistributedServerNode {
         await this.initDistributedServer();
         this.initRoutines();
         this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-        if (this.isPrimaryNode) {
-            // No need to init mc server
-            if (ENV != "dev") {
-                this.initMCServerApplication();
-                this.fileWatcher.startWatching();
-            }
-        }
+        this.initiateMinecraftServer()
         this.initProcesses();
     }
 
@@ -127,7 +125,7 @@ export default class DistributedServerNode {
 
         // Stop the Minecraft server
         if (this.isPrimaryNode) {
-            MinecraftServerAdaptor.shutdownMinecraftServer();
+            await MinecraftServerAdaptor.shutdownMinecraftServer();
             this.fileWatcher.stopWatching();
         }
         console.log("Server stopped");
@@ -155,7 +153,7 @@ export default class DistributedServerNode {
         });
     }
 
-    private initMCServerApplication(): void {
+    private static initMCServerApplication(): void {
         MinecraftServerAdaptor.startMinecraftServer("../minecraft-server");
     }
 
@@ -184,29 +182,6 @@ export default class DistributedServerNode {
         });
     }
 
-    private saveToFile() {
-        try {
-            const serializableNode = {
-                mainPort: this.connection.getHttpPort(),
-                minecraftPort: this.connection.getMinecraftPort(),
-                address: this.connection.getAddress(),
-                isPrimaryNode: this.isPrimaryNode,
-                inNetwork: this.inNetwork,
-                uuid: this.uuid,
-                networkNodes: this.networkNodes.map((node) => ({...node})),
-                primaryNode: this.primaryNode,
-                selfNode: {...this.selfNode},
-                alive: this.alive,
-                raftSave: this.RAFTConsensus.saveFile(),
-            };
-
-            const serializedNode = JSON.stringify(serializableNode, null, 2);
-            fs.writeFileSync(FILEPATH, serializedNode, "utf8");
-            console.log("DistributedServerNode saved to file successfully.");
-        } catch (err) {
-            console.error("Error saving DistributedServerNode to file:", err);
-        }
-    }
 
     public getServerInformation() {
         const raftState = this.RAFTConsensus.saveFile();
@@ -241,8 +216,8 @@ export default class DistributedServerNode {
         this.networkNodes = [this.selfNode];
         this.primaryNode = this.findPrimaryNode();
         this.initRoutines();
-        this.saveToFile();
-        this.initMCServerApplication();
+        saveToFile(this);
+        DistributedServerNode.initMCServerApplication();
         this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
         this.fileWatcher.startWatching();
     }
@@ -277,7 +252,7 @@ export default class DistributedServerNode {
             );
 
             this.initRoutines();
-            this.saveToFile();
+            saveToFile(this);
         } catch (error) {
             // Handle the error
             console.error("Error joining network:", error);
@@ -288,7 +263,7 @@ export default class DistributedServerNode {
         this.networkNodes.push(node);
         // Propogate all nodes to network
         this.propagateNetworkNodeList();
-        this.saveToFile();
+        saveToFile(this);
         return this.networkNodes;
     }
 
@@ -296,7 +271,7 @@ export default class DistributedServerNode {
         // If it is primary, remove itself from all other nodes in the server
         if (this.isPrimaryNode) {
             await this.acceptLeaveNetwork(this.selfNode);
-            MinecraftServerAdaptor.shutdownMinecraftServer();
+            await MinecraftServerAdaptor.shutdownMinecraftServer();
             console.log("Complete shupdown of processes");
         } else {
             // If not, tell primary to remove itself from all other nodes in the server
@@ -325,13 +300,13 @@ export default class DistributedServerNode {
             this.raftSave.state,
             this
         );
-        this.saveToFile();
+       saveToFile(this);
     }
 
     public async acceptLeaveNetwork(node: DistributedNode) {
         this.removeNetworkNode(node.uuid);
-        this.propagateNetworkNodeList();
-        this.saveToFile();
+        await this.propagateNetworkNodeList();
+        saveToFile(this);
     }
 
     public removeNetworkNode(uuid: string) {
@@ -476,8 +451,8 @@ export default class DistributedServerNode {
         this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
         this.fileWatcher.startWatching();
         this.RAFTConsensus.state = RaftState.LEADER;
-        this.initMCServerApplication();
-        this.saveToFile();
+        DistributedServerNode.initMCServerApplication();
+       saveToFile(this);
     }
 
     public async acceptLeadership(data) {
@@ -485,7 +460,7 @@ export default class DistributedServerNode {
         this.networkNodes = data;
         this.primaryNode = this.findPrimaryNode();
         this.initRoutines();
-        this.saveToFile();
+       saveToFile(this);
     }
 
     private sendLeadershipNotification(node: DistributedNode): Promise<void> {
@@ -529,12 +504,8 @@ export default class DistributedServerNode {
                             console.log("Self still leader");
                             this.initRoutines();
                             this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-                            if (this.isPrimaryNode) {
-                                if (ENV != "dev") {
-                                    this.initMCServerApplication();
-                                    this.fileWatcher.startWatching();
-                                }
-                            }
+                            this.initiateMinecraftServer()
+
                             this.initProcesses();
                         } else {
                             console.log("recovering...");
@@ -563,9 +534,9 @@ export default class DistributedServerNode {
 
                             this.initRoutines();
                             this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-                            this.fileWatcher.recovery();
+                            await this.fileWatcher.recovery();
                             this.initProcesses();
-                            this.saveToFile();
+                           saveToFile(this);
                             console.log(this.uuid, " Recovery complete");
                         }
 
@@ -587,12 +558,7 @@ export default class DistributedServerNode {
         );
         this.initRoutines();
         this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-        if (this.isPrimaryNode) {
-            if (ENV != "dev") {
-                this.initMCServerApplication();
-                this.fileWatcher.startWatching();
-            }
-        }
+        this.initiateMinecraftServer()
         this.initProcesses();
     }
 

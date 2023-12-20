@@ -2,6 +2,7 @@ import path from "path";
 import DistributedServerNode from "../distributedNode/distributedNode";
 import fs from "fs";
 import Connection from "../network/connection";
+import {DistributedNode} from "../distributedNode/node/distributedNodeInterface";
 
 export const FILEPATH: string = path.join(__dirname, "distributedNode", "node", "save.json");
 
@@ -29,3 +30,28 @@ export async function loadFromFile(): Promise<DistributedServerNode | null> {
         return null;
     }
 }
+
+export function saveToFile(node: DistributedServerNode) {
+    try {
+        const serializableNode = {
+            mainPort: node.connection.getHttpPort(),
+            minecraftPort: node.connection.getMinecraftPort(),
+            address: node.connection.getAddress(),
+            isPrimaryNode: node.isPrimaryNode,
+            inNetwork: node.inNetwork,
+            uuid: node.uuid,
+            networkNodes: node.networkNodes.map((node) => ({...node})),
+            primaryNode: node.primaryNode,
+            selfNode: {...node.selfNode},
+            alive: node.alive,
+            raftSave: node.RAFTConsensus.saveFile(),
+        };
+
+        const serializedNode = JSON.stringify(serializableNode, null, 2);
+        fs.writeFileSync(FILEPATH, serializedNode, "utf8");
+        console.log("DistributedServerNode saved to file successfully.");
+    } catch (err) {
+        console.error("Error saving DistributedServerNode to file:", err);
+    }
+}
+
