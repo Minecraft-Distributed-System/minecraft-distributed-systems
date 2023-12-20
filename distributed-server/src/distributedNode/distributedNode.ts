@@ -180,14 +180,14 @@ export default class DistributedServerNode {
         process.on("beforeExit", async () => {
             if (this.isPrimaryNode) {
                 await MinecraftServerAdaptor.shutdownMinecraftServer();
-                sleep(2000);
+                await sleep(2000);
             }
         });
 
         process.on("SIGINT", async () => {
             if (this.isPrimaryNode) {
                 await MinecraftServerAdaptor.shutdownMinecraftServer();
-                sleep(2000);
+                await sleep(2000);
             }
             process.exit(1);
         });
@@ -195,7 +195,7 @@ export default class DistributedServerNode {
         process.on("SIGTERM", async () => {
             if (this.isPrimaryNode) {
                 await MinecraftServerAdaptor.shutdownMinecraftServer();
-                sleep(2000);
+                await sleep(2000);
             }
             process.exit(1);
         });
@@ -233,11 +233,11 @@ export default class DistributedServerNode {
     }
 
     public async acceptJoinNetwork(node: DistributedNode) {
-       await this.networkManager.acceptJoinNetwork(node);
+        await this.networkManager.acceptJoinNetwork(node);
     }
 
     public async requestLeaveNetwork() {
-       await this.networkManager.requestLeaveNetwork();
+        await this.networkManager.requestLeaveNetwork();
     }
 
     public async acceptLeaveNetwork(node: DistributedNode) {
@@ -269,15 +269,12 @@ export default class DistributedServerNode {
 
         try {
             await Promise.all(requestPromises);
-            console.log("All network list propogation completed successfully.");
+            console.log("All network list propagation completed successfully.");
         } catch (error) {
             console.error("At least one PUT request failed:", error.message);
         }
     }
 
-    /*
-     *
-     */
     public initRoutines() {
         this.resetRoutines();
         this.initHeartbeatRoutine();
@@ -304,7 +301,7 @@ export default class DistributedServerNode {
         }
     }
 
-    private sendHeartbeatRequest(node: DistributedNode): Promise<void> {
+    private async sendHeartbeatRequest(node: DistributedNode): Promise<void> {
         const url = `http://${node.address}:${node.distributedPort}/heartbeat`;
         return axios
             .get(url, {timeout: 4000})
@@ -373,7 +370,7 @@ export default class DistributedServerNode {
         this.isPrimaryNode = true;
         this.updateSelfNode();
         this.primaryNode.isPrimary = false;
-        this.removeNetworkNode(this.uuid);
+        await this.removeNetworkNode(this.uuid);
         this.networkNodes.push(this.selfNode);
         this.primaryNode = this.findPrimaryNode();
         this.initRoutines();
@@ -382,7 +379,7 @@ export default class DistributedServerNode {
         this.fileWatcher.startWatching();
         this.RAFTConsensus.state = RaftState.LEADER;
         DistributedServerNode.initMCServerApplication();
-       saveToFile(this);
+       await saveToFile(this);
     }
 
     public async acceptLeadership(data) {
@@ -390,7 +387,7 @@ export default class DistributedServerNode {
         this.networkNodes = data;
         this.primaryNode = this.findPrimaryNode();
         this.initRoutines();
-       saveToFile(this);
+        await saveToFile(this);
     }
 
     private sendLeadershipNotification(node: DistributedNode): Promise<void> {
@@ -420,65 +417,92 @@ export default class DistributedServerNode {
 
     async recoveryStart() {
         await this.initDistributedServer();
-        // Ask all known nodes who is the primary
+
+        const findPrimary = async (node) => {
+            try {
+                const response = await axios.get(`http://${node.address}:${node.distributedPort}/info`, { timeout: 4000 });
+                const { primary } = response.data.info;
+                return { response, primary };
+            } catch (error) {
+                console.error(`Error querying node ${node.address}:${node.distributedPort}:`, error.message);
+                return { response: null, primary: null };
+            }
+        };
+
+        const handlePrimaryResponse = async (response, primary) => {
+            if (response && response.status === 200) {
+                console.log(response.status);
+
+                if (primary.uuid == this.uuid) {
+                    console.log("Self still a leader");
+                    this.initRoutines();
+                    this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
+                    this.initiateMinecraftServer();
+                    this.initProcesses();
+                } else {
+                    await this.handleRecovery(primary);
+                }
+
+                return true;
+            }
+
+            return false;
+        };
+
         for (const node of this.networkNodes) {
-            if (node.uuid != this.uuid) {
-                try {
-                    const response = await axios.get(`http://${node.address}:${node.distributedPort}/info`, {timeout: 4000});
-                    const {primary} = response.data.info;
-                    if (response.status == 200) {
-                        console.log(response.status);
+            if (node.uuid !== this.uuid) {
+                const { response, primary } = await findPrimary(node);
+                const handled = await handlePrimaryResponse(response, primary);
 
-                        if (primary.uuid == this.uuid) {
-                            console.log("Self still a leader");
-                            this.initRoutines();
-                            this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-                            this.initiateMinecraftServer()
-
-                            this.initProcesses();
-                        } else {
-                            console.log("recovering...");
-                            const URL = `http://${primary.address}:${primary.distributedPort}/request-recovery`;
-                            const RAFTURL = `http://${primary.address}:${primary.distributedPort}/raft-state`;
-                            const response = await axios.put(URL, {failedNode: this.selfNode});
-                            this.networkNodes = response.data.networkNodes;
-                            this.primaryNode = this.findPrimaryNode();
-                            this.isPrimaryNode = false;
-                            // Update self node
-                            this.updateSelfNode();
-                            const raftResponse = await axios.get(RAFTURL);
-                            const primaryraftSave: RAFTSave = raftResponse.data.raftState;
-                            const newRaftSave: RAFTSave = {
-                                currentTerm: primaryraftSave.currentTerm,
-                                votedFor: null,
-                                state: RaftState.FOLLOWER,
-                            };
-                            this.raftSave = newRaftSave;
-                            this.RAFTConsensus = new RAFTconsensus(
-                                this.raftSave.currentTerm,
-                                this.raftSave.votedFor,
-                                this.raftSave.state,
-                                this
-                            );
-
-                            this.initRoutines();
-                            this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-                            await this.fileWatcher.recovery();
-                            this.initProcesses();
-                           saveToFile(this);
-                            console.log(this.uuid, " Recovery complete");
-                        }
-
-                        return;
-                    }
-                } catch (error) {
-                    console.error(`Error querying node ${node.address}:${node.distributedPort}:`, error.message);
-                    break;
+                if (handled) {
+                    return;
                 }
             }
         }
+
         // Nobody responded, start as normal
         console.log("Nobody responded, Self still leader");
+        this.handleSelfLeader();
+    }
+
+    async handleRecovery(primary) {
+        console.log("recovering...");
+        const URL = `http://${primary.address}:${primary.distributedPort}/request-recovery`;
+        const RAFTURL = `http://${primary.address}:${primary.distributedPort}/raft-state`;
+
+        const response = await axios.put(URL, { failedNode: this.selfNode });
+        this.networkNodes = response.data.networkNodes;
+        this.primaryNode = this.findPrimaryNode();
+        this.isPrimaryNode = false;
+
+        // Update self node
+        this.updateSelfNode();
+
+        const raftResponse = await axios.get(RAFTURL);
+        const primaryRaftSave = raftResponse.data.raftState;
+        const newRaftSave = {
+            currentTerm: primaryRaftSave.currentTerm,
+            votedFor: null,
+            state: RaftState.FOLLOWER,
+        };
+
+        this.raftSave = newRaftSave;
+        this.RAFTConsensus = new RAFTconsensus(
+            this.raftSave.currentTerm,
+            this.raftSave.votedFor,
+            this.raftSave.state,
+            this
+        );
+
+        this.initRoutines();
+        this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
+        await this.fileWatcher.recovery();
+        this.initProcesses();
+        await saveToFile(this);
+        console.log(this.uuid, " Recovery complete");
+    }
+
+    handleSelfLeader() {
         this.RAFTConsensus = new RAFTconsensus(
             this.raftSave.currentTerm,
             this.raftSave.votedFor,
@@ -487,18 +511,19 @@ export default class DistributedServerNode {
         );
         this.initRoutines();
         this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-        this.initiateMinecraftServer()
+        this.initiateMinecraftServer();
         this.initProcesses();
     }
 
-    recoverNode(node: DistributedNode) {
+
+    public async recoverNode(node: DistributedNode) {
         let foundNode = this.networkNodes.find((networkNode) => networkNode.uuid === node.uuid);
 
         if (foundNode) {
             foundNode.alive = true;
         } else {
             this.networkNodes.push(node);
-            this.propagateNetworkNodeList();
+            await this.propagateNetworkNodeList();
         }
     }
 }

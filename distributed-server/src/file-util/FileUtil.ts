@@ -1,10 +1,8 @@
-import path from "path";
 import DistributedServerNode from "../distributedNode/distributedNode";
 import fs from "fs";
 import Connection from "../network/connection";
-import {DistributedNode} from "../distributedNode/node/distributedNodeInterface";
 
-export const FILEPATH: string = path.join(__dirname, "distributedNode", "node", "save.json");
+export const FILEPATH: string ="./src/distributedNode/node/save.json";
 
 export async function loadFromFile(): Promise<DistributedServerNode | null> {
     try {
