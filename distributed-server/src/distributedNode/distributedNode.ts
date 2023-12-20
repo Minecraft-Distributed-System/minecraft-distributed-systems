@@ -1,7 +1,6 @@
 import fastify from "fastify";
 import {MinecraftServerAdaptor} from "../minecraftServerAdaptor/MinecraftServerAdaptor";
 import {routes} from "./routes";
-import {v4 as uuidv4} from "uuid";
 import {DistributedNode, RAFTSave, RaftState} from "./node/distributedNodeInterface";
 import axios, {AxiosError} from "axios";
 import {clearInterval} from "timers";
@@ -336,7 +335,7 @@ export default class DistributedServerNode {
     }
 
     public async handlePrimaryFailure() {
-        console.log("Primary failure detected");
+        console.log("Detected Primary failure");
         if (this.primaryNode) {
             this.primaryNode.alive = false;
         }
@@ -345,7 +344,7 @@ export default class DistributedServerNode {
         const randomFactor = Math.random() + 0.5;
         const electionDelay = Math.min(baseDelay * randomFactor, 13000);
         await sleep(electionDelay);
-        console.log("Running Raft election");
+        console.log("Starting Raft Election");
         this.RAFTConsensus.startElection();
     }
 
@@ -379,7 +378,7 @@ export default class DistributedServerNode {
         this.fileWatcher.startWatching();
         this.RAFTConsensus.state = RaftState.LEADER;
         DistributedServerNode.initMCServerApplication();
-       await saveToFile(this);
+        await saveToFile(this);
     }
 
     public async acceptLeadership(data) {
@@ -420,12 +419,12 @@ export default class DistributedServerNode {
 
         const findPrimary = async (node) => {
             try {
-                const response = await axios.get(`http://${node.address}:${node.distributedPort}/info`, { timeout: 4000 });
-                const { primary } = response.data.info;
-                return { response, primary };
+                const response = await axios.get(`http://${node.address}:${node.distributedPort}/info`, {timeout: 4000});
+                const {primary} = response.data.info;
+                return {response, primary};
             } catch (error) {
                 console.error(`Error querying node ${node.address}:${node.distributedPort}:`, error.message);
-                return { response: null, primary: null };
+                return {response: null, primary: null};
             }
         };
 
@@ -451,7 +450,7 @@ export default class DistributedServerNode {
 
         for (const node of this.networkNodes) {
             if (node.uuid !== this.uuid) {
-                const { response, primary } = await findPrimary(node);
+                const {response, primary} = await findPrimary(node);
                 const handled = await handlePrimaryResponse(response, primary);
 
                 if (handled) {
@@ -460,17 +459,16 @@ export default class DistributedServerNode {
             }
         }
 
-        // Nobody responded, start as normal
         console.log("Nobody responded, Self still leader");
         this.handleSelfLeader();
     }
 
     async handleRecovery(primary) {
-        console.log("recovering...");
+        console.log("Starting Recovery Process...");
         const URL = `http://${primary.address}:${primary.distributedPort}/request-recovery`;
         const RAFTURL = `http://${primary.address}:${primary.distributedPort}/raft-state`;
 
-        const response = await axios.put(URL, { failedNode: this.selfNode });
+        const response = await axios.put(URL, {failedNode: this.selfNode});
         this.networkNodes = response.data.networkNodes;
         this.primaryNode = this.findPrimaryNode();
         this.isPrimaryNode = false;
@@ -480,13 +478,11 @@ export default class DistributedServerNode {
 
         const raftResponse = await axios.get(RAFTURL);
         const primaryRaftSave = raftResponse.data.raftState;
-        const newRaftSave = {
+        this.raftSave = {
             currentTerm: primaryRaftSave.currentTerm,
             votedFor: null,
             state: RaftState.FOLLOWER,
         };
-
-        this.raftSave = newRaftSave;
         this.RAFTConsensus = new RAFTconsensus(
             this.raftSave.currentTerm,
             this.raftSave.votedFor,
