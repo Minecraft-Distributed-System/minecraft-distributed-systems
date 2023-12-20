@@ -10,6 +10,7 @@ import {RAFTconsensus} from "./RAFTconsensus";
 import {FileWatcher} from "../fileSync/worldFileSync";
 import {saveToFile} from "../file-util/FileUtil";
 import Connection from "../network/connection";
+import {NetworkManager} from "./node/NetworkManager";
 
 let ENV: string = process.env.NODE_ENV;
 
@@ -23,6 +24,9 @@ export default class DistributedServerNode {
     // Filewatcher
     public fileWatcher: FileWatcher;
 
+    // Network Manager
+    public networkManager: NetworkManager;
+
     // Internal data
     public isPrimaryNode: boolean;
     public inNetwork: boolean;
@@ -32,11 +36,9 @@ export default class DistributedServerNode {
     public selfNode: DistributedNode;
     public alive: boolean;
 
-
     // Routine IDs
     public heartbeatId: any;
     public heartbeatTimerId: any;
-
 
     // Raft Consensus
     public raftSave: RAFTSave;
@@ -65,9 +67,10 @@ export default class DistributedServerNode {
         this.networkNodes = networkNodes || [];
         this.primaryNode = this.findPrimaryNode();
         this.raftSave = raftSave || this.baseRaftSave;
+        this.networkManager = new NetworkManager(this);
     }
 
-    private findPrimaryNode(): DistributedNode | null {
+    public findPrimaryNode(): DistributedNode | null {
         for (const node of this.networkNodes) {
             if (node.isPrimary) {
                 return node;
@@ -76,7 +79,9 @@ export default class DistributedServerNode {
         return null;
     }
 
-    /* If the current node is a primary server and if the environment is production, start the minecraft world */
+    /*
+     * If the current node is a primary server and if the environment is production, start the minecraft world
+     */
     private initiateMinecraftServer(): void {
         if (ENV === "production" && this.isPrimaryNode) {
             DistributedServerNode.initMCServerApplication();
@@ -84,13 +89,18 @@ export default class DistributedServerNode {
         }
     }
 
+    /*
+     * Given a nodelist, update network and set primary node from network
+     */
     public updateNodeList(nodeList: DistributedNode[]) {
         this.networkNodes = nodeList;
         this.primaryNode = this.findPrimaryNode();
     }
 
+    /*
+     * Initiate Raft election
+     */
     public async start() {
-        // Init RAFT
         this.RAFTConsensus = new RAFTconsensus(
             this.raftSave.currentTerm,
             this.raftSave.votedFor,
@@ -104,6 +114,9 @@ export default class DistributedServerNode {
         this.initProcesses();
     }
 
+    /*
+     * Reset heartbeat routine and close HTTP server
+     */
     public async stop(): Promise<void> {
         // Stop your routines and clear intervals
         this.resetRoutines();
@@ -131,6 +144,9 @@ export default class DistributedServerNode {
         console.log("Server stopped");
     }
 
+    /*
+     * Open a new HTTP server, define HTTP routes, and accept HTTP requests
+     */
     private async initDistributedServer(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             this.mainServer = fastify({
@@ -153,10 +169,13 @@ export default class DistributedServerNode {
         });
     }
 
-    private static initMCServerApplication(): void {
+    public static initMCServerApplication(): void {
         MinecraftServerAdaptor.startMinecraftServer("../minecraft-server");
     }
 
+    /*
+     * Initiate event listeners on crashes
+     */
     private initProcesses() {
         process.on("beforeExit", async () => {
             if (this.isPrimaryNode) {
@@ -193,7 +212,7 @@ export default class DistributedServerNode {
         };
     }
 
-    private updateSelfNode() {
+    public updateSelfNode() {
         this.selfNode = {
             uuid: this.uuid,
             address: this.connection.getAddress(),
@@ -204,119 +223,29 @@ export default class DistributedServerNode {
         };
     }
 
-    // Distributed Node functions
-
-    // NETWORK JOINING AND LEAVING
+    // Distributed Node Network functions
     public async createNetwork() {
-        this.isPrimaryNode = true;
-        this.inNetwork = true;
-        this.uuid = uuidv4();
-        this.RAFTConsensus.state = RaftState.LEADER;
-        this.updateSelfNode();
-        this.networkNodes = [this.selfNode];
-        this.primaryNode = this.findPrimaryNode();
-        this.initRoutines();
-        saveToFile(this);
-        DistributedServerNode.initMCServerApplication();
-        this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
-        this.fileWatcher.startWatching();
+        await this.networkManager.createNetwork();
     }
 
     public async requestNetwork({address}) {
-        const requestURL = `${address}/join-network`;
-        const RAFTURL = `${address}/raft-state`;
-        this.uuid = uuidv4();
-        this.updateSelfNode();
-        console.log(address);
-        try {
-            const results = await axios.put(requestURL, this.selfNode);
-            console.log("Join successful");
-            // Update own network
-            this.inNetwork = true;
-            this.networkNodes = results.data.data;
-            this.primaryNode = this.findPrimaryNode();
-
-            const raftResponse = await axios.get(RAFTURL);
-            const primaryraftSave: RAFTSave = raftResponse.data.raftState;
-            const newRaftSave: RAFTSave = {
-                currentTerm: primaryraftSave.currentTerm,
-                votedFor: null,
-                state: RaftState.FOLLOWER,
-            };
-            this.raftSave = newRaftSave;
-            this.RAFTConsensus = new RAFTconsensus(
-                this.raftSave.currentTerm,
-                this.raftSave.votedFor,
-                this.raftSave.state,
-                this
-            );
-
-            this.initRoutines();
-            saveToFile(this);
-        } catch (error) {
-            // Handle the error
-            console.error("Error joining network:", error);
-        }
+        await this.networkManager.requestNetwork({address});
     }
 
-    public acceptJoinNetwork(node: DistributedNode) {
-        this.networkNodes.push(node);
-        // Propogate all nodes to network
-        this.propagateNetworkNodeList();
-        saveToFile(this);
-        return this.networkNodes;
+    public async acceptJoinNetwork(node: DistributedNode) {
+       await this.networkManager.acceptJoinNetwork(node);
     }
 
     public async requestLeaveNetwork() {
-        // If it is primary, remove itself from all other nodes in the server
-        if (this.isPrimaryNode) {
-            await this.acceptLeaveNetwork(this.selfNode);
-            await MinecraftServerAdaptor.shutdownMinecraftServer();
-            console.log("Complete shupdown of processes");
-        } else {
-            // If not, tell primary to remove itself from all other nodes in the server
-            const requestURL = `http://${this.primaryNode.address}:${this.primaryNode.distributedPort}/leave-network`;
-            try {
-                const results = await axios.put(requestURL, this.selfNode);
-                console.log("Leave Successful");
-            } catch (error) {
-                // Handle the error
-                console.error("Error joining network:", error.message);
-            }
-        }
-
-        this.primaryNode = null;
-        this.isPrimaryNode = false;
-        this.networkNodes = [];
-        this.uuid = null;
-        this.inNetwork = false;
-        this.updateSelfNode();
-        this.initRoutines();
-
-        // RESET RAFT STATES
-        this.RAFTConsensus = new RAFTconsensus(
-            this.raftSave.currentTerm,
-            this.raftSave.votedFor,
-            this.raftSave.state,
-            this
-        );
-       saveToFile(this);
+       await this.networkManager.requestLeaveNetwork();
     }
 
     public async acceptLeaveNetwork(node: DistributedNode) {
-        this.removeNetworkNode(node.uuid);
-        await this.propagateNetworkNodeList();
-        saveToFile(this);
+        await this.networkManager.acceptLeaveNetwork(node);
     }
 
-    public removeNetworkNode(uuid: string) {
-        const indexToRemove = this.networkNodes.findIndex((node) => node.uuid === uuid);
-        if (indexToRemove !== -1) {
-            this.networkNodes.splice(indexToRemove, 1);
-        } else {
-            console.warn(`Network node with UUID ${uuid} not found.`);
-        }
-        console.log(this.networkNodes);
+    public async removeNetworkNode(uuid: string) {
+        await this.networkManager.removeNetworkNode(uuid);
     }
 
     private sendPutRequest(node: DistributedNode): Promise<void> {
@@ -346,8 +275,9 @@ export default class DistributedServerNode {
         }
     }
 
-    // NETWORK ROUTINES
-
+    /*
+     *
+     */
     public initRoutines() {
         this.resetRoutines();
         this.initHeartbeatRoutine();
@@ -500,8 +430,7 @@ export default class DistributedServerNode {
                         console.log(response.status);
 
                         if (primary.uuid == this.uuid) {
-                            // I am still leader run as normal
-                            console.log("Self still leader");
+                            console.log("Self still a leader");
                             this.initRoutines();
                             this.fileWatcher = new FileWatcher(["../minecraft-server"], this);
                             this.initiateMinecraftServer()
