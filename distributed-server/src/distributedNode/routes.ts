@@ -18,6 +18,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
   NETWORK ROUTES
   These routes handle join/leaving/creating a network
   */
+
   // Route for starting a network
   mainServer.post("/create-network", async (request, reply) => {
     // if already in network, fail
@@ -25,7 +26,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
       return reply.code(400).send({ error: "Already in the network" });
     }
     // create network
-    node.createNetwork();
+    await node.createNetwork();
 
     return { message: "Network started successfully" };
   });
@@ -156,7 +157,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
   // Node calls primary server to faciliate recovery
   mainServer.put("/request-recovery", async (request, reply) => {
     const { failedNode } = request.body;
-    node.recoverNode(failedNode);
+    await node.recoverNode(failedNode);
     const networkNodes = node.networkNodes;
     reply.code(200).send({ networkNodes });
   });
