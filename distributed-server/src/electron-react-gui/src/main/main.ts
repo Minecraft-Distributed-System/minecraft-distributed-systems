@@ -16,6 +16,8 @@ class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let info: any;
+let nodeList: any;
 
 function getLocalIPv4Address() {
   const interfaces = os.networkInterfaces();
@@ -39,7 +41,7 @@ async function getInfo() {
   const port = 8080;
   const URL = `http://${address}:${port}/info`;
   const result = await axios.get(URL);
-  info = result.data.info;
+  let info = result.data.info;
   nodeList = info.network;
   mainWindow.webContents.send("update-node-list", nodeList);
 }
@@ -67,13 +69,13 @@ ipcMain.on("join-network", async (event, nodeAddress) => {
   mainWindow.webContents.send("update-node-list", nodeList);
 });
 
-ipcMain.on("create-network", async () => {
+ipcMain.on("create-network", async (event,arg) => {
   const address = getLocalIPv4Address();
   const port = 8080;
   const URL = `http://${address}:${port}/create-network`;
 
   try {
-    const result = await axios.post(URL, null, {
+    const result = await axios.post(URL, JSON.stringify(arg), {
       headers: {
         "Content-Type": "application/json", // Set the appropriate content type
       },
@@ -84,6 +86,7 @@ ipcMain.on("create-network", async () => {
     mainWindow.webContents.send("error");
   }
 });
+
 ipcMain.handle("get-info", () => {
   return { info, nodeList };
 });

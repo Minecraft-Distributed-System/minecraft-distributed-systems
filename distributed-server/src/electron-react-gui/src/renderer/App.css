@@ -8,6 +8,7 @@ body {
   overflow-y: hidden;
   display: flex;
   justify-content: center;
+  padding: 15px;
 }
 
 .network-button {
@@ -50,4 +51,34 @@ a:hover {
   justify-content: center;
   align-items: center;
   margin: 20px 0;
+}
+
+.alive {
+  content: " ";
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  transition: all 0.3s;
+  background-color: #00FF00;
+  margin: 0 10px 0 0;
+  align-self: center;
+}
+
+.alive::before {
+  animation: alive-animation 2s infinite;
+  background-color: #00FF00;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+@keyframes alive-animation {
+  50%   {
+    transform: scale(2);
+    opacity: 0
+  }
+  100%   {
+    transform: scale(2);
+    opacity: 0
+  }
 }
