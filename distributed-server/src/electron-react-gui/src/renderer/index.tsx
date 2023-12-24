@@ -3,7 +3,10 @@ import App from './App';
 
 const container = document.getElementById('root') as HTMLElement;
 const root = createRoot(container);
-root.render(<App />);
+container.classList.add('d-flex');
+container.classList.add('w-100');
+container.classList.add('justify-content-start');
+root.render(<App/>);
 
 // calling IPC exposed from preload script
 window.electron.ipcRenderer.once('ipc-example', (arg) => {

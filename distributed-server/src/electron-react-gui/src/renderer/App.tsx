@@ -1,57 +1,98 @@
-import {MemoryRouter as Router, Routes, Route} from 'react-router-dom';
+import {BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom';
 import './App.css';
 import {useEffect, useState} from "react";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
+import {SnackbarProvider, VariantType, useSnackbar} from 'notistack';
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { faCrown } from '@fortawesome/free-solid-svg-icons'
+import {Container} from 'react-bootstrap';
+import {SideNav} from './SideNav';
 
 
 function Home() {
 
-  const [show, setShow] = useState(false);
-  const [formData, setFormData] = useState({});
+  // hooks
+  const [createShow, setCreateShow] = useState(false);
+  const [joinShow, setJoinShow] = useState(false);
+  const [createFormData, setCreateFormData] = useState({});
+  const [joinFormData, setJoinFormData] = useState({});
   const [nodeList, setNodeList] = useState([]);
-  const handleClose = () => setShow(false);
-  const handleShow = () => setShow(true);
+
+  // modal setters
+  const handleCreateClose = () => setCreateShow(false);
+  const handleCreateShow = () => setCreateShow(true);
+  const handleJoinShow = () => setJoinShow(true);
+  const handleJoinClose = () => setJoinShow(false);
+
+  const {enqueueSnackbar} = useSnackbar();
+
 
   useEffect(() => {
     setInterval(() => {
       getInfo();
-    }, 2000);
+    }, 1500);
   })
 
-  const handleCreateNetwork = (event) => {
-    window.electron.ipcRenderer.sendMessage('create-network', formData);
-    handleClose();
+  const handleCreateNetwork = async () => {
+    try {
+      const response = await window.electron.ipcRenderer.invoke('create-network', createFormData);
+      console.log(response);
+      enqueueSnackbar('Successful creation', {variant: 'success'});
+    } catch (error) {
+      enqueueSnackbar(error, {variant: 'error'});
+    }
+    handleCreateClose();
   }
 
-  const handleFormChange = (event) => {
+  const handleJoinNetwork = async () => {
+    try {
+      const response = await window.electron.ipcRenderer.invoke('join-network', joinFormData);
+      enqueueSnackbar('Successful creation', {variant: 'success'});
+      await getInfo();
+    } catch (error) {
+      enqueueSnackbar(error, {variant: 'error'});
+    }
+    handleJoinClose();
+  }
+
+  const handleCreateFormChange = (event) => {
     const {target} = event;
     const {name, value} = target;
-    setFormData({
-      ...formData,
+    setCreateFormData({
+      ...createFormData,
+      [name]: value,
+    });
+  }
+
+  const handleJoinFormChange = (event) => {
+    const {target} = event;
+    const {name, value} = target;
+    setJoinFormData({
+      ...joinFormData,
       [name]: value,
     });
   }
 
   const getInfo = async () => {
-    const {info, nodeList} = await window.electron.ipcRenderer.invoke('get-info', null);
+    const {nodeList} = await window.electron.ipcRenderer.invoke('get-info', null);
     setNodeList(nodeList);
-    console.log(nodeList);
   }
 
   const displayNodeList = () => {
     if (nodeList.length === 0) {
       return <></>;
     }
-
     return (
       <>
-        <h2 className="d-flex justify-content-center text-white">Network</h2>
+        <h2 className="d-flex text-white align-self-start">Network List</h2>
+        <hr className="text-white w-100"/>
         {nodeList.map((item) => (
-          <div key={item.address} className={`text-white d-inline-flex`}>
-            {item.isPrimary ? <div className="alive"/> : (item.alive ? <div className="alive"/>  : <div className="dead"/> )}
-            {item.isPrimary || item.alive && <div className="alive" />}
+          <div key={item.address} className={`text-white d-inline-flex align-self-start`}>
+            {item.isPrimary ? <FontAwesomeIcon icon={faCrown} className="align-self-center leader"/> : (item.alive ? <div className="alive"/> :
+              <div className="dead"/>)}
+            {item.isPrimary || item.alive && <div className="alive"/>}
             {item.username} | {item.address}
           </div>
         ))}
@@ -61,57 +102,84 @@ function Home() {
 
 
   return (
-    <div>
-      <div>
-        <h1 className="text-white">Minecraft Distributed Server System</h1>
-        <div className="base">
-          <a>
-            <button type="button" name="username" role="create-network" className="network-button" onClick={handleShow}>
-              Create Network
-            </button>
-          </a>
-          <a>
-            <button type="button" role="join-network" className="network-button">
+    <Container>
+      <h2 className="text-white p-3">Network Sessions</h2>
+      <Container className="base p-3">
+          <div className="pb-3">
+            <a>
+              <button type="button" name="username" role="create-network" className="network-button"
+                      onClick={handleCreateShow}>
+                Create Network
+              </button>
+            </a>
+            <a>
+              <button type="button" role="join-network" className="network-button" onClick={handleJoinShow}>
+                Join Network
+              </button>
+            </a>
+            <a>
+              <button type="button" role="debug" className="network-button" onClick={getInfo}>
+                Refresh Network
+              </button>
+            </a>
+          </div>
+          {/* Node List Display */}
+          {displayNodeList()}
+
+      </Container>
+      <>
+        <Modal show={createShow} onHide={handleCreateClose}>
+          <Modal.Header closeButton>
+            <Modal.Title>Creating Network</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <form>
+              <label>Username</label>
+              <input className="form-control" name="username" onChange={handleCreateFormChange}/>
+            </form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleCreateNetwork}>
+              Create
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </>
+
+      <>
+        <Modal show={joinShow} onHide={handleJoinClose}>
+          <Modal.Header closeButton>
+            <Modal.Title>Joining a Network</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <form>
+              <label>Username</label>
+              <input className="form-control" name="username" onChange={handleJoinFormChange}/>
+              <label>IP Address (IPv4)</label>
+              <input className="form-control" name="ip-address" onChange={handleJoinFormChange}/>
+            </form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleJoinNetwork}>
               Join Network
-            </button>
-          </a>
-          <a>
-            <button type="button" role="debug" className="network-button" onClick={getInfo}>
-              Refresh Network
-            </button>
-          </a>
-        </div>
-        <>
-          <Modal show={show} onHide={handleClose}>
-            <Modal.Header closeButton>
-              <Modal.Title>Creating Network</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              <form>
-                <label>Username</label>
-                <input className="form-control" name="username" onChange={handleFormChange}/>
-              </form>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="primary" onClick={handleCreateNetwork}>
-                Create
-              </Button>
-            </Modal.Footer>
-          </Modal>
-        </>
-      </div>
-    {/* Node List Display */}
-      {displayNodeList()}
-    </div>
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </>
+    </Container>
   );
 }
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home/>}/>
-      </Routes>
-    </Router>
+    <SnackbarProvider maxSnack={2}>
+      <Router>
+        <SideNav/>
+        <Routes>
+          <Route path="/" element={<Home/>}/>
+          {/*<Route path="*" element={<Navigate to="/" replace />} />*/}
+        </Routes>
+      </Router>
+    </SnackbarProvider>
   );
 }

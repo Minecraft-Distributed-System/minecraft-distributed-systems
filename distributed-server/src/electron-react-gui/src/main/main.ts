@@ -6,6 +6,7 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import {default as axios} from "axios";
 import os from "os";
+import {Exception} from "sass";
 
 class AppUpdater {
   constructor() {
@@ -49,7 +50,7 @@ async function getInfo() {
 setInterval(getInfo, 1000);
 
 // Listen for the 'join-network' message from the renderer process
-ipcMain.on("join-network", async (event, nodeAddress) => {
+ipcMain.handle("join-network", async (event, nodeAddress) => {
   const address = getLocalIPv4Address();
   const port = 8080;
   const URL = `http://${address}:${port}/request-network`;
@@ -57,19 +58,16 @@ ipcMain.on("join-network", async (event, nodeAddress) => {
   const body = {
     address: `http://${nodeAddress}:${8080}`,
   };
-
   console.log(URL);
   try {
-    await axios.put(URL, body);
-    mainWindow.webContents.send("join-success");
-  } catch {
-    mainWindow.webContents.send("join-error");
+   const response =  await axios.put(URL, body);
+   return response;
+  } catch (error) {
+    throw new Error(error.response.data.error);
   }
-  // Send an update to the renderer process with the updated node list
-  mainWindow.webContents.send("update-node-list", nodeList);
 });
 
-ipcMain.on("create-network", async (event,arg) => {
+ipcMain.handle("create-network", async (event,arg) => {
   const address = getLocalIPv4Address();
   const port = 8080;
   const URL = `http://${address}:${port}/create-network`;
@@ -80,10 +78,9 @@ ipcMain.on("create-network", async (event,arg) => {
         "Content-Type": "application/json", // Set the appropriate content type
       },
     });
-    mainWindow.webContents.send("create-success");
+    return result;
   } catch (error) {
-    console.log(error);
-    mainWindow.webContents.send("error");
+    throw new Error(error.response.data.error);
   }
 });
 
@@ -158,7 +155,7 @@ const createWindow = async () => {
     resizable: false
   });
 
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
+  mainWindow.loadURL(resolveHtmlPath('/'));
 
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
