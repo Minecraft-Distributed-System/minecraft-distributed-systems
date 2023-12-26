@@ -96,7 +96,11 @@ function Home() {
   const getInfo = async () => {
     const {nodeList} = await window.electron.ipcRenderer.invoke('get-info', null);
     setNodeList(nodeList);
-    setInNetwork(!nodeList && nodeList.length > 0);
+    try {
+      setInNetwork(!nodeList && nodeList.length > 0);
+    } catch (error) {
+      setInNetwork(false);
+    }
   }
 
   const displayNodeList = () => {
