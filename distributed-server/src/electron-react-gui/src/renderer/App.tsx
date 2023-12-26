@@ -6,7 +6,7 @@ import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import {SnackbarProvider, VariantType, useSnackbar} from 'notistack';
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import { faCrown } from '@fortawesome/free-solid-svg-icons'
+import {faCrown} from '@fortawesome/free-solid-svg-icons'
 import {Container} from 'react-bootstrap';
 import {SideNav} from './SideNav';
 
@@ -40,10 +40,10 @@ function Home() {
     try {
       const response = await window.electron.ipcRenderer.invoke('create-network', createFormData);
       console.log(response);
-      enqueueSnackbar('Successful creation', { variant: 'success' });
+      enqueueSnackbar('Successful creation', {variant: 'success'});
     } catch (error) {
       console.error(error);
-      enqueueSnackbar('Error creating network', { variant: 'error' });
+      enqueueSnackbar('Error creating network', {variant: 'error'});
     }
     await getInfo();
     handleCreateClose();
@@ -52,11 +52,11 @@ function Home() {
   const handleJoinNetwork = async () => {
     try {
       const response = await window.electron.ipcRenderer.invoke('join-network', joinFormData);
-      enqueueSnackbar('Successful creation', { variant: 'success' });
+      enqueueSnackbar('Successful creation', {variant: 'success'});
       await getInfo();
     } catch (error) {
       console.error(error);
-      enqueueSnackbar('Error joining network', { variant: 'error' });
+      enqueueSnackbar('Error joining network', {variant: 'error'});
     }
     handleJoinClose();
   };
@@ -64,11 +64,11 @@ function Home() {
   const handleLeaveNetwork = async () => {
     try {
       await window.electron.ipcRenderer.invoke('leave-network', null);
-      enqueueSnackbar('Successful Leave ', { variant: 'success' });
+      enqueueSnackbar('Successful Leave ', {variant: 'success'});
       await getInfo();
     } catch (error) {
       console.error(error);
-      enqueueSnackbar(error.message, { variant: 'error' });
+      enqueueSnackbar(error.message, {variant: 'error'});
     }
     setInNetwork(false);
     await getInfo();
@@ -96,13 +96,12 @@ function Home() {
   const getInfo = async () => {
     const {nodeList} = await window.electron.ipcRenderer.invoke('get-info', null);
     setNodeList(nodeList);
-    try {
-      setInNetwork(!nodeList && nodeList.length > 0);
-    } catch (error) {
+    if (nodeList === undefined) {
       setInNetwork(false);
+    } else {
+      setInNetwork(nodeList && nodeList.length > 0);
     }
   }
-
   const displayNodeList = () => {
     if (!nodeList || nodeList.length === 0) {
       return <></>;
@@ -113,7 +112,8 @@ function Home() {
         <hr className="text-white w-100"/>
         {nodeList.map((item) => (
           <div key={item.address} className={`text-white d-inline-flex align-self-start`}>
-            {item.isPrimary ? <FontAwesomeIcon icon={faCrown} className="align-self-center leader"/> : (item.alive ? <div className="alive"/> :
+            {item.isPrimary ? <FontAwesomeIcon icon={faCrown} className="align-self-center leader"/> : (item.alive ?
+              <div className="alive"/> :
               <div className="dead"/>)}
             {item.isPrimary || item.alive && <div className="alive"/>}
             {item.username} | {item.address}
@@ -128,31 +128,31 @@ function Home() {
     <Container>
       <h2 className="text-white p-3">Network Sessions</h2>
       <Container className="base p-3">
-          <div className="pb-3">
-            <a hidden={inNetwork}>
-              <button type="button" name="username" role="create-network" className="network-button"
-                      onClick={handleCreateShow}>
-                Create Network
-              </button>
-            </a>
-            <a  hidden={inNetwork}>
-              <button type="button" role="join-network" className="network-button" onClick={handleJoinShow}>
-                Join Network
-              </button>
-            </a>
-            <a  hidden={!inNetwork}>
-              <button type="button" role="leave-network" className="network-button" onClick={handleLeaveNetwork}>
-                Leave Network
-              </button>
-            </a>
-            <a>
-              <button type="button" role="debug" className="network-button" onClick={getInfo}>
-                Refresh Network
-              </button>
-            </a>
-          </div>
-          {/* Node List Display */}
-          {displayNodeList()}
+        <div className="pb-3">
+          <a hidden={inNetwork}>
+            <button type="button" name="username" role="create-network" className="network-button"
+                    onClick={handleCreateShow}>
+              Create Network
+            </button>
+          </a>
+          <a hidden={inNetwork}>
+            <button type="button" role="join-network" className="network-button" onClick={handleJoinShow}>
+              Join Network
+            </button>
+          </a>
+          <a hidden={!inNetwork}>
+            <button type="button" role="leave-network" className="network-button" onClick={handleLeaveNetwork}>
+              Leave Network
+            </button>
+          </a>
+          <a>
+            <button type="button" role="debug" className="network-button" onClick={getInfo}>
+              Refresh Network
+            </button>
+          </a>
+        </div>
+        {/* Node List Display */}
+        {displayNodeList()}
 
       </Container>
       <>
