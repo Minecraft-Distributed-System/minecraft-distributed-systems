@@ -37,7 +37,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
     if (node.inNetwork) {
       return reply.code(400).send({ error: "Already in a network" });
     }
-    node.requestNetwork(request.body);
+    await node.requestNetwork(request.body);
 
     return { message: "Requested to join network", data: request.data };
   });
