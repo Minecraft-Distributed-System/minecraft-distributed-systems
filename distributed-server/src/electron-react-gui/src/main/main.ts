@@ -56,7 +56,7 @@ ipcMain.handle("join-network", async (event, nodeAddress) => {
   const URL = `http://${address}:${port}/request-network`;
   console.log(nodeAddress);
   const body = {
-    address: `http://${nodeAddress['ip-addresss']}:${8080}`,
+    address: `http://${nodeAddress['ip-address']}:${8080}`,
     username: nodeAddress['username']
   };
   console.log(URL);
