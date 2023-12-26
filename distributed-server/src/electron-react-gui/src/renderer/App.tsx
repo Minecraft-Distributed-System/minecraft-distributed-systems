@@ -115,7 +115,6 @@ function Home() {
             {item.isPrimary ? <FontAwesomeIcon icon={faCrown} className="align-self-center leader"/> : (item.alive ?
               <div className="alive"/> :
               <div className="dead"/>)}
-            {item.isPrimary || item.alive && <div className="alive"/>}
             {item.username} | {item.address}
           </div>
         ))}
