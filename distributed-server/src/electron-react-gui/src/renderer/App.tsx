@@ -19,6 +19,7 @@ function Home() {
   const [createFormData, setCreateFormData] = useState({});
   const [joinFormData, setJoinFormData] = useState({});
   const [nodeList, setNodeList] = useState([]);
+  const [inNetwork, setInNetwork] = useState(false);
 
   // modal setters
   const handleCreateClose = () => setCreateShow(false);
@@ -39,23 +40,40 @@ function Home() {
     try {
       const response = await window.electron.ipcRenderer.invoke('create-network', createFormData);
       console.log(response);
-      enqueueSnackbar('Successful creation', {variant: 'success'});
+      enqueueSnackbar('Successful creation', { variant: 'success' });
     } catch (error) {
-      enqueueSnackbar(error, {variant: 'error'});
+      console.error(error);
+      enqueueSnackbar('Error creating network', { variant: 'error' });
     }
+    await getInfo();
     handleCreateClose();
-  }
+  };
 
   const handleJoinNetwork = async () => {
     try {
       const response = await window.electron.ipcRenderer.invoke('join-network', joinFormData);
-      enqueueSnackbar('Successful creation', {variant: 'success'});
+      enqueueSnackbar('Successful creation', { variant: 'success' });
       await getInfo();
     } catch (error) {
-      enqueueSnackbar(error, {variant: 'error'});
+      console.error(error);
+      enqueueSnackbar('Error joining network', { variant: 'error' });
     }
     handleJoinClose();
+  };
+
+  const handleLeaveNetwork = async () => {
+    try {
+      await window.electron.ipcRenderer.invoke('leave-network', null);
+      enqueueSnackbar('Successful Leave ', { variant: 'success' });
+      await getInfo();
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar(error.message, { variant: 'error' });
+    }
+    setInNetwork(false);
+    await getInfo();
   }
+
 
   const handleCreateFormChange = (event) => {
     const {target} = event;
@@ -78,10 +96,12 @@ function Home() {
   const getInfo = async () => {
     const {nodeList} = await window.electron.ipcRenderer.invoke('get-info', null);
     setNodeList(nodeList);
+    setInNetwork(nodeList.length > 0);
+    console.log(inNetwork)
   }
 
   const displayNodeList = () => {
-    if (nodeList.length === 0) {
+    if (!nodeList || nodeList.length === 0) {
       return <></>;
     }
     return (
@@ -106,15 +126,20 @@ function Home() {
       <h2 className="text-white p-3">Network Sessions</h2>
       <Container className="base p-3">
           <div className="pb-3">
-            <a>
+            <a hidden={inNetwork}>
               <button type="button" name="username" role="create-network" className="network-button"
                       onClick={handleCreateShow}>
                 Create Network
               </button>
             </a>
-            <a>
+            <a  hidden={inNetwork}>
               <button type="button" role="join-network" className="network-button" onClick={handleJoinShow}>
                 Join Network
+              </button>
+            </a>
+            <a  hidden={!inNetwork}>
+              <button type="button" role="leave-network" className="network-button" onClick={handleLeaveNetwork}>
+                Leave Network
               </button>
             </a>
             <a>

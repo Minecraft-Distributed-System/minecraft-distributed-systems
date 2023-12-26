@@ -1,5 +1,6 @@
 export interface DistributedNode {
     uuid: string;
+    username: string;
     address: string;
     distributedPort: number;
     minecraftPort: number;

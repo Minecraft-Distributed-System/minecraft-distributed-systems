@@ -15,11 +15,12 @@ export class NetworkManager {
         this.distributedServerNode = distributedServerNode;
     }
 
-    public async createNetwork() {
+    public async createNetwork({username}) {
         this.distributedServerNode.isPrimaryNode = true;
         this.distributedServerNode.inNetwork = true;
         this.distributedServerNode.uuid = uuidv4();
         this.distributedServerNode.RAFTConsensus.state = RaftState.LEADER;
+        this.distributedServerNode.username = username;
         this.distributedServerNode.updateSelfNode();
         this.distributedServerNode.networkNodes = [this.distributedServerNode.selfNode];
         this.distributedServerNode.primaryNode = this.distributedServerNode.findPrimaryNode();
@@ -30,7 +31,7 @@ export class NetworkManager {
         this.distributedServerNode.fileWatcher.startWatching();
     }
 
-    public async requestNetwork({address}) {
+    public async requestNetwork({address,username}) {
         const requestURL = `${address}/join-network`;
         const RAFTURL = `${address}/raft-state`;
         this.distributedServerNode.uuid = uuidv4();
@@ -42,6 +43,7 @@ export class NetworkManager {
             this.distributedServerNode.inNetwork = true;
             this.distributedServerNode.networkNodes = results.data.data;
             this.distributedServerNode.primaryNode = this.distributedServerNode.findPrimaryNode();
+            this.distributedServerNode.username = username;
 
             const raftResponse = await axios.get(RAFTURL);
             const primaryRAFTSave: RAFTSave = raftResponse.data.raftState;

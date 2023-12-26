@@ -78,8 +78,9 @@ ipcMain.handle("create-network", async (event,arg) => {
         "Content-Type": "application/json", // Set the appropriate content type
       },
     });
-    return result;
+    return result.data;
   } catch (error) {
+    console.log(error);
     throw new Error(error.response.data.error);
   }
 });
@@ -89,17 +90,15 @@ ipcMain.handle("get-info", () => {
 });
 
 // Listen for the 'leave-network' message from the renderer process
-ipcMain.on("leave-network", async () => {
+ipcMain.handle("leave-network", async () => {
   const address = getLocalIPv4Address();
   const port = 8080;
   const URL = `http://${address}:${port}/request-leave-network`;
 
   try {
     await axios.delete(URL);
-    mainWindow.webContents.send("leave-success");
   } catch (error) {
-    console.log(error);
-    mainWindow.webContents.send("leave-error");
+    throw new Error('Unable to leave Network')
   }
 });
 

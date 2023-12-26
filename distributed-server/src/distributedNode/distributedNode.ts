@@ -31,6 +31,7 @@ export default class DistributedServerNode {
     public inNetwork: boolean;
     public networkNodes: DistributedNode[];
     public uuid: string;
+    public username: string;
     public primaryNode: DistributedNode;
     public selfNode: DistributedNode;
     public alive: boolean;
@@ -55,12 +56,14 @@ export default class DistributedServerNode {
         inNetwork: boolean,
         networkNodes: DistributedNode[],
         uuid: string,
-        raftSave: RAFTSave
+        raftSave: RAFTSave,
+        username = null
     ) {
         this.connection = connection;
         this.isPrimaryNode = isPrimaryNode || false;
         this.inNetwork = inNetwork || false;
         this.uuid = uuid || null;
+        this.username = username || uuid;
         this.alive = true;
         this.updateSelfNode();
         this.networkNodes = networkNodes || [];
@@ -218,17 +221,18 @@ export default class DistributedServerNode {
             distributedPort: this.connection.getHttpPort(),
             minecraftPort: this.connection.getMinecraftPort(),
             alive: this.alive,
-            isPrimary: this.isPrimaryNode
+            isPrimary: this.isPrimaryNode,
+            username: this.username,
         };
     }
 
     // Distributed Node Network functions
-    public async createNetwork() {
-        await this.networkManager.createNetwork();
+    public async createNetwork({username}) {
+        await this.networkManager.createNetwork({username});
     }
 
-    public async requestNetwork({address}) {
-        await this.networkManager.requestNetwork({address});
+    public async requestNetwork({address, username}) {
+        await this.networkManager.requestNetwork({address, username});
     }
 
     public async acceptJoinNetwork(node: DistributedNode) {

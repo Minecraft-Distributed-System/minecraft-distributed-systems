@@ -18,7 +18,8 @@ export async function loadFromFile(): Promise<DistributedServerNode | null> {
             parsedData.inNetwork,
             parsedData.networkNodes,
             parsedData.uuid,
-            parsedData.raftSave
+            parsedData.raftSave,
+            parsedData.username,
         );
         await node.recoveryStart();
         console.log("DistributedServerNode loaded from file successfully.");
@@ -31,6 +32,7 @@ export async function loadFromFile(): Promise<DistributedServerNode | null> {
 
 export function saveToFile(node: DistributedServerNode) {
     try {
+        console.log(node.networkNodes);
         const serializableNode = {
             mainPort: node.connection.getHttpPort(),
             minecraftPort: node.connection.getMinecraftPort(),
@@ -38,6 +40,7 @@ export function saveToFile(node: DistributedServerNode) {
             isPrimaryNode: node.isPrimaryNode,
             inNetwork: node.inNetwork,
             uuid: node.uuid,
+            username: node.username,
             networkNodes: node.networkNodes.map((node) => ({...node})),
             primaryNode: node.primaryNode,
             selfNode: {...node.selfNode},

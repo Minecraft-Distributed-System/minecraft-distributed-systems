@@ -26,7 +26,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
       return reply.code(400).send({ error: "Already in the network" });
     }
     // create network
-    await node.createNetwork();
+    await node.createNetwork(request.body);
 
     return { message: "Network started successfully" };
   });
