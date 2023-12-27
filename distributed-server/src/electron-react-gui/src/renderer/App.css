@@ -1,0 +1,158 @@
+:root {
+  --text-color: white;
+  --container-background-color: rgb(56,65,82);
+  --background-color: rgb(32,41,56);
+  --side-nav-background: rgb(17,24,40);
+  --highlight-tab-color: rgb(27, 39, 64);
+  --line-color: black;
+}
+
+body {
+  color: var(--text-color);
+  min-height: 100vh;
+  /*background-image: linear-gradient(to bottom, rgba(1,5,34,0) 0%,rgba(1,5,34,1) 90%,rgba(1,5,34,1) 100%), url("/assets/minecraft-background.jpg");*/
+  background-color: var(--background-color) !important;
+  background-attachment:fixed;
+  background-repeat: no-repeat;
+  font-family: sans-serif;
+  overflow-y: hidden;
+  justify-content: center;
+}
+
+.network-button {
+  background-color: white;
+  padding: 8px 15px;
+  border-radius: 5px;
+  border: none;
+  appearance: none;
+  font-size: 1 rem;
+  box-shadow: 0px 8px 28px -6px rgba(24, 39, 75, 0.12),
+    0px 18px 88px -4px rgba(24, 39, 75, 0.14);
+  transition: all ease-in 0.1s;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.network-button:hover {
+  transform: scale(1.02);
+  opacity: 1;
+}
+
+li {
+  list-style: none;
+}
+
+a {
+  text-decoration: none;
+  height: fit-content;
+  width: fit-content;
+  margin: 10px;
+}
+
+a:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.base {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  background-color: var(--container-background-color);
+  border-radius: 15px;
+  flex-direction: column;
+  height: 85vh;
+}
+
+.leader {
+  margin: 0 10px 0 0;
+  color: yellow;
+}
+
+.alive {
+  content: " ";
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  transition: all 0.3s;
+  background-color: #00FF00;
+  margin: 0 10px 0 0;
+  align-self: center;
+}
+
+.alive::before {
+  animation: alive-animation 2s infinite;
+  background-color: #00FF00;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+@keyframes alive-animation {
+  50%   {
+    transform: scale(2);
+    opacity: 0
+  }
+  100%   {
+    transform: scale(2);
+    opacity: 0
+  }
+}
+
+.side-nav {
+  width: 25% !important;
+  min-width: 25% !important;
+  max-width: 25% !important;
+  background-color: var(--side-nav-background);
+  border-right: var(--line-color) 1px solid;
+
+}
+
+.text-hover:hover {
+  opacity: 0.7;
+}
+
+.column-tab {
+  border: var(--line-color) 1px solid;
+}
+
+.side-nav-title {
+  margin-bottom: 50px;
+}
+
+.active-tab {
+  background-color: var(--highlight-tab-color);
+  border-radius: 5px;
+  width: 90%;
+}
+
+.dead {
+  content: " ";
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  transition: all 0.3s;
+  background-color: #D1001F;
+  margin: 0 10px 0 0;
+  align-self: center;
+}
+
+.dead::before {
+  animation: dead-animation 2s infinite;
+  background-color: #D1001F;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+@keyframes dead-animation {
+  50%   {
+    transform: scale(2);
+    opacity: 0
+  }
+  100%   {
+    transform: scale(2);
+    opacity: 0
+  }
+}
+

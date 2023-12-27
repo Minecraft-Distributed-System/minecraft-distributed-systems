@@ -1,5 +1,5 @@
 import fs from "fs-extra";
-import { DistributedServerNode } from "./distributedNode";
+import  DistributedServerNode  from "./distributedNode";
 import * as path from "path";
 
 export const routes = (mainServer, node: DistributedServerNode) => {
@@ -18,6 +18,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
   NETWORK ROUTES
   These routes handle join/leaving/creating a network
   */
+
   // Route for starting a network
   mainServer.post("/create-network", async (request, reply) => {
     // if already in network, fail
@@ -25,7 +26,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
       return reply.code(400).send({ error: "Already in the network" });
     }
     // create network
-    node.createNetwork();
+    await node.createNetwork(request.body);
 
     return { message: "Network started successfully" };
   });
@@ -36,7 +37,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
     if (node.inNetwork) {
       return reply.code(400).send({ error: "Already in a network" });
     }
-    node.requestNetwork(request.body);
+    await node.requestNetwork(request.body);
 
     return { message: "Requested to join network", data: request.data };
   });
@@ -156,7 +157,7 @@ export const routes = (mainServer, node: DistributedServerNode) => {
   // Node calls primary server to faciliate recovery
   mainServer.put("/request-recovery", async (request, reply) => {
     const { failedNode } = request.body;
-    node.recoverNode(failedNode);
+    await node.recoverNode(failedNode);
     const networkNodes = node.networkNodes;
     reply.code(200).send({ networkNodes });
   });

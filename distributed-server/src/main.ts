@@ -1,46 +1,15 @@
-import { DistributedServerNode, loadFromFile } from "./distributedNode/distributedNode";
-import os from "os";
+import DistributedServerNode from "./distributedNode/distributedNode";
+import Connection from "./network/connection";
+import {loadFromFile} from "./file-util/FileUtil";
 
-function getLocalIPv4Address(): string | null {
-  const interfaces = os.networkInterfaces();
-
-  for (const interfaceName in interfaces) {
-    const interfaceInfo = interfaces[interfaceName];
-
-    for (const iface of interfaceInfo) {
-      // Check for IPv4 and exclude loopback and internal addresses
-      console.log(iface);
-      if (
-        (iface.family === "IPv4" || (iface.family as any) === 4) &&
-        !iface.internal &&
-        iface.address !== "127.0.0.1" &&
-        !iface.address.startsWith("172")
-      ) {
-        return iface.address;
-      }
+async function main(): Promise<void> {
+    let connection: Connection = new Connection();
+    let node: DistributedServerNode = await loadFromFile();
+    if (node === null) {
+        node = new DistributedServerNode(connection, null, null, null, null, null);
+        await node.start();
     }
-  }
-
-  return null;
+    console.log("Distributed System has started!"); // Print a message to the console
 }
 
-function main() {
-  // Initialize networks
-  // Find public IP
-  const localIpAddress = getLocalIPv4Address();
-  const address: string = localIpAddress;
-  const httpPort: number = 8080;
-  const rSyncPort: number = 8081;
-  const minecraftPort: number = 8082;
-
-  let node: DistributedServerNode = loadFromFile();
-  if (node == null) {
-    console.log("creating new node");
-    node = new DistributedServerNode(address, httpPort, rSyncPort, minecraftPort, null, null, null, null, null, null);
-    node.start();
-  }
-  console.log("Distributed node up!"); // Print a message to the console
-}
-
-// Call the main function
 main();

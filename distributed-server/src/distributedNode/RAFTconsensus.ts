@@ -1,6 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { DistributedNode, RAFTSave, RaftState } from "./node/distributedNodeInterface";
-import { DistributedServerNode } from "./distributedNode";
+import  DistributedServerNode  from "./distributedNode";
 import { RAFT_ELECTION_TIMER } from "./node/timers";
 
 interface LogEntry {

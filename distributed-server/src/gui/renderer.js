@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((node) => {
         const crownIcon = node.isPrimary ? "👑" : "";
         const statusIcon = node.alive ? "🟢" : "🔴";
-        return `<li>${crownIcon}${node.uuid} | Status: ${statusIcon}</li>`;
+        return `<li>${crownIcon}${node.address} | Status: ${statusIcon}</li>`;
       })
       .join("");
   });
@@ -75,6 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ipcRenderer.on("error", (event, error) => {
     showNotification("UHOH an internal server error happened");
   });
+
+
   function showNotification(message) {
     // Display the message in the notification element
     notification.textContent = message;
