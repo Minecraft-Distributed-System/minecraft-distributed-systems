@@ -41,10 +41,12 @@ async function getInfo() {
   const address = getLocalIPv4Address();
   const port = 8080;
   const URL = `http://${address}:${port}/info`;
-  const result = await axios.get(URL);
-  let info = result.data.info;
-  nodeList = info.network;
-  mainWindow.webContents.send("update-node-list", nodeList);
+  try {
+    const result = await axios.get(URL);
+    let info = result.data.info;
+    nodeList = info.network;
+  } catch(error) {
+  }
 }
 
 setInterval(getInfo, 1000);
@@ -57,7 +59,7 @@ ipcMain.handle("join-network", async (event, nodeAddress) => {
   console.log(nodeAddress);
   const body = {
     address: `http://${nodeAddress['ip-address']}:${8080}`,
-    username: nodeAddress['username']
+    username: nodeAddrqess['username']
   };
   console.log(URL);
   try {

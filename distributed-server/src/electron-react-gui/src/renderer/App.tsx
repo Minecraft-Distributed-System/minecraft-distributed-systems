@@ -160,13 +160,13 @@ function Home() {
             <Modal.Title>Creating Network</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <form>
+            <form onSubmit={handleCreateNetwork}>
               <label>Username</label>
               <input className="form-control" name="username" onChange={handleCreateFormChange}/>
             </form>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={handleCreateNetwork}>
+            <Button variant="primary" type="submit">
               Create
             </Button>
           </Modal.Footer>
@@ -179,7 +179,7 @@ function Home() {
             <Modal.Title>Joining a Network</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <form>
+            <form onSubmit={handleJoinNetwork}>
               <label>Username</label>
               <input className="form-control" name="username" onChange={handleJoinFormChange}/>
               <label>IP Address (IPv4)</label>
@@ -187,7 +187,7 @@ function Home() {
             </form>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={handleJoinNetwork}>
+            <Button variant="primary" type="submit">
               Join Network
             </Button>
           </Modal.Footer>
